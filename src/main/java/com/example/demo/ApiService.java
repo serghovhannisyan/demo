@@ -13,11 +13,14 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ApiService implements Api {
 
     private final WebClient webClient;
+
+    public ApiService(WebClient.Builder clientBuilder, AuthTokenFilter authTokenFilter) {
+        this.webClient = clientBuilder.filter(authTokenFilter).build();
+    }
 
     // Entry point for data retrieval
     // There are about 1000 Projects
@@ -28,44 +31,24 @@ public class ApiService implements Api {
     // e.g. (project1, item1), (project1, item2), (project2, item1)
     @Override
     public Flux<ResponseWrapper> getAllData() {
-        return getToken()
-                .flatMapMany(auth -> {
-                    WebClient clientWithToken = getMutatedWebClientWithToken(auth);
-                    return getProjects(clientWithToken)
-                            .flatMap(project -> Flux.fromIterable(project.getItems())
-                                    .flatMap(item -> getItemDetails(clientWithToken, project.getId(), item.getId())
-                                            .map(itemDetails -> ResponseWrapper.of(project, item, itemDetails))));
-                });
+        return getProjects()
+                .flatMap(project -> Flux.fromIterable(project.getItems())
+                        .flatMap(item -> getItemDetails(project.getId(), item.getId())
+                                .map(itemDetails -> ResponseWrapper.of(project, item, itemDetails))));
     }
 
-    public Mono<Auth> getToken() {
-        return webClient.post()
-                .uri("/auth/token")
-                .body(BodyInserters.fromFormData("username", "test-user")
-                        .with("password", "test-password"))
-                .retrieve()
-                .bodyToMono(Auth.class);
-    }
-
-    public Flux<Project> getProjects(WebClient client) {
-        return client.get()
+    public Flux<Project> getProjects() {
+        return webClient.get()
                 .uri("/projects")
                 .retrieve()
                 .bodyToFlux(Project.class);
     }
 
-    public Mono<ItemDetails> getItemDetails(WebClient client,
-                                               Long projectId,
-                                               Long itemId) {
-        return client.get()
+    public Mono<ItemDetails> getItemDetails(Long projectId,
+                                            Long itemId) {
+        return webClient.get()
                 .uri("/projects/{projectId}/details/{itemId}", projectId, itemId)
                 .retrieve()
                 .bodyToMono(ItemDetails.class);
-    }
-
-    private WebClient getMutatedWebClientWithToken(Auth auth) {
-        return webClient.mutate()
-                .defaultHeader("Authorization", "Bearer " + auth.getToken())
-                .build();
     }
 }

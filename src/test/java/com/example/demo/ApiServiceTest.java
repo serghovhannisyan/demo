@@ -15,10 +15,10 @@ import org.mockserver.model.MediaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static org.mockserver.matchers.Times.once;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 
@@ -33,8 +33,12 @@ public class ApiServiceTest {
     @BeforeEach
     public void setupMockServer() {
         mockServer = ClientAndServer.startClientAndServer(2001);
-        apiService = new ApiService(WebClient.builder()
-                .baseUrl("http://localhost:" + mockServer.getLocalPort()).build());
+        apiService = new ApiService(webClientWithMockServerBaseUrl(), new AuthTokenFilter(webClientWithMockServerBaseUrl().build()));
+    }
+
+    private WebClient.Builder webClientWithMockServerBaseUrl() {
+        return WebClient.builder()
+                .baseUrl("http://localhost:" + mockServer.getLocalPort());
     }
 
     @AfterEach
@@ -47,7 +51,7 @@ public class ApiServiceTest {
         mockServer
                 .when(request()
                         .withMethod(HttpMethod.POST.name())
-                        .withPath("/auth/token"))
+                        .withPath("/auth/token"), once())
                 .respond(response()
                         .withStatusCode(HttpStatus.OK.value())
                         .withContentType(MediaType.APPLICATION_JSON)
@@ -56,6 +60,7 @@ public class ApiServiceTest {
         mockServer
                 .when(request()
                         .withMethod(HttpMethod.GET.name())
+                        .withHeader("Authorization", "Bearer test-token")
                         .withPath("/projects"))
                 .respond(response()
                         .withStatusCode(HttpStatus.OK.value())
@@ -65,6 +70,7 @@ public class ApiServiceTest {
         mockServer
                 .when(request()
                         .withMethod(HttpMethod.GET.name())
+                        .withHeader("Authorization", "Bearer test-token")
                         .withPath("/projects/.*"))
                 .respond(response()
                         .withStatusCode(HttpStatus.OK.value())
