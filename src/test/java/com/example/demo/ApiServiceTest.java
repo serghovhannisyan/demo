@@ -104,9 +104,9 @@ public class ApiServiceTest {
                 .mapToObj(i -> Project.builder()
                         .id(i)
                         // by default flatmap concurrency is 256,
-                        // adding one more ensures that one request has to wait for one of the previous ones to finish
+                        // adding more items here ensures that some requests have to wait for one of the previous ones to finish
                         // which makes it possible to test token expiration
-                        .items(IntStream.rangeClosed(1, 257)
+                        .items(IntStream.rangeClosed(1, 300)
                                 .mapToLong(Long::valueOf)
                                 .mapToObj(j -> new Item(j, "name" + j))
                                 .collect(Collectors.toList()))
