@@ -18,8 +18,8 @@ public class AuthTokenFilter implements ExchangeFilterFunction {
     private final WebClient webClient;
     private final Mono<Auth> authProvider;
 
-    public AuthTokenFilter(WebClient webClient, @Value("${token.expire}") Duration tokenExpire) {
-        this.webClient = webClient;
+    public AuthTokenFilter(WebClient.Builder webClientBuilder, @Value("${token.expire}") Duration tokenExpire) {
+        this.webClient = webClientBuilder.build();
 
         // cache operator ensures that subsequent calls can reuse existing token, you can even set a TTL if the token can expire
         this.authProvider = authenticate()

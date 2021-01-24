@@ -1,7 +1,10 @@
 package com.example.demo;
 
-import com.example.demo.dto.*;
-import lombok.RequiredArgsConstructor;
+import com.example.demo.dto.Auth;
+import com.example.demo.dto.Item;
+import com.example.demo.dto.ItemDetails;
+import com.example.demo.dto.Project;
+import com.example.demo.dto.ResponseWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -13,11 +16,14 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ApiServiceMock implements Api {
 
     private final WebClient webClient;
+
+    public ApiServiceMock(WebClient.Builder webClientBuilder) {
+        this.webClient = webClientBuilder.build();
+    }
 
     // Entry point for data retrieval
     // There are about 1000 Projects

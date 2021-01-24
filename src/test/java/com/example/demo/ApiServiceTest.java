@@ -36,7 +36,7 @@ public class ApiServiceTest {
     @BeforeEach
     public void setupMockServer() {
         mockServer = ClientAndServer.startClientAndServer(2001);
-        apiService = new ApiService(webClientWithMockServerBaseUrl(), new AuthTokenFilter(webClientWithMockServerBaseUrl().build(),
+        apiService = new ApiService(webClientWithMockServerBaseUrl(), new AuthTokenFilter(webClientWithMockServerBaseUrl(),
                 Duration.ofSeconds(1)));
     }
 
