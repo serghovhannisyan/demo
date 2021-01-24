@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import com.example.demo.dto.Auth;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.ClientRequest;
@@ -10,16 +11,19 @@ import org.springframework.web.reactive.function.client.ExchangeFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+
 @Component
 public class AuthTokenFilter implements ExchangeFilterFunction {
     private final WebClient webClient;
     private final Mono<Auth> authProvider;
 
-    public AuthTokenFilter(WebClient webClient) {
+    public AuthTokenFilter(WebClient webClient, @Value("${token.expire}") Duration tokenExpire) {
         this.webClient = webClient;
 
         // cache operator ensures that subsequent calls can reuse existing token, you can even set a TTL if the token can expire
-        this.authProvider = authenticate().cache();
+        this.authProvider = authenticate()
+                .cache(x -> tokenExpire, ex -> Duration.ZERO, () -> Duration.ZERO); // don't cache error or empty
     }
 
     @Override
