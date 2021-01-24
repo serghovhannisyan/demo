@@ -16,6 +16,8 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @SpringBootApplication
 @Slf4j
@@ -55,11 +57,21 @@ public class DemoApplication implements CommandLineRunner {
     @Qualifier(value = "apiServiceMock")
     private Api api;
 
+    @Autowired
+    private AwsService awsService;
+
     @Override
     public void run(String... args) throws Exception {
         api.getAllData()
                 .doOnNext(responseWrapper -> log.info("response {}", responseWrapper))
-                .collectList()
+                .buffer(10) // window?
+                // make 3000 requests as fast as possible, either default pool, or much more
+                // but calling sqsBatch needs to be with rate limit, like max 10 concurrent calls
+                .flatMap(responseWrappers -> awsService.saveSQSBatch(responseWrappers).thenReturn(responseWrappers))
+                // is thenReturn is proper way of returning initial data?
+                // should I use reduce? because collectList returns me list of lists
+                .reduce((list1, list2) -> Stream.concat(list1.stream(), list2.stream()).collect(Collectors.toList()))
+                .flatMap(combinedListAll3000Items -> awsService.saveS3(combinedListAll3000Items))
                 .block();
     }
 }
