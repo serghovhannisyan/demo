@@ -16,8 +16,6 @@ import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @SpringBootApplication
 @Slf4j
@@ -64,13 +62,17 @@ public class DemoApplication implements CommandLineRunner {
     public void run(String... args) throws Exception {
         api.getAllData()
                 .doOnNext(responseWrapper -> log.info("response {}", responseWrapper))
-                .buffer(10) // window?
+                .buffer(10) // window? - buffer is ok
                 // make 3000 requests as fast as possible, either default pool, or much more
+                .onBackpressureBuffer() // ignores backpressure signals from below ensuring no slow down in http calls
                 // but calling sqsBatch needs to be with rate limit, like max 10 concurrent calls
-                .flatMap(responseWrappers -> awsService.saveSQSBatch(responseWrappers).thenReturn(responseWrappers))
-                // is thenReturn is proper way of returning initial data?
-                // should I use reduce? because collectList returns me list of lists
-                .reduce((list1, list2) -> Stream.concat(list1.stream(), list2.stream()).collect(Collectors.toList()))
+                .flatMap(responseWrappers -> awsService.saveSQSBatch(responseWrappers).thenReturn(responseWrappers), 10)
+                // is thenReturn is proper way of returning initial data? - yes, that's perfectly fine
+                // should I use reduce? because collectList returns me list of lists - reduce works,
+                //  if we use a flatMapIterable before collectList then we create less intermediate objects
+                //  but does not make too much difference because IO operations take much more time
+                .flatMapIterable(x -> x)
+                .collectList()
                 .flatMap(combinedListAll3000Items -> awsService.saveS3(combinedListAll3000Items))
                 .block();
     }
