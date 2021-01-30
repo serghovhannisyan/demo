@@ -74,6 +74,7 @@ public class DemoApplication implements CommandLineRunner {
                 .flatMapIterable(x -> x)
                 .collectList()
                 .flatMap(combinedListAll3000Items -> awsService.saveS3(combinedListAll3000Items))
+                .doOnError(e -> log.error("Process failed", e))
                 .block();
     }
 }

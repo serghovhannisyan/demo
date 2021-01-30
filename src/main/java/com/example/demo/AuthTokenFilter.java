@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.time.Duration;
 
@@ -23,6 +24,7 @@ public class AuthTokenFilter implements ExchangeFilterFunction {
 
         // cache operator ensures that subsequent calls can reuse existing token, you can even set a TTL if the token can expire
         this.authProvider = authenticate()
+                .retryWhen(Retry.backoff(1, Duration.ofSeconds(1)))
                 .cache(x -> tokenExpire, ex -> Duration.ZERO, () -> Duration.ZERO); // don't cache error or empty
     }
 
