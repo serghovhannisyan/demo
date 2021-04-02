@@ -22,6 +22,7 @@ public class MyRunner {
                 .retry() // read from queue even on errors
                 .repeat() // read from queue all the time
                 .flatMap(Flux::fromIterable)
+                .doOnNext(item -> System.out.println("Starting to process item: " + item))
                 .filterWhen(filterService::passFilter)
                 .flatMap(snsService::saveItems)
                 .collectList()
