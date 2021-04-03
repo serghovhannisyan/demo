@@ -18,9 +18,10 @@ public class MyRunner {
 
     // this will be called during startup and run forever
     public void run() {
-        sqsService.getItems()
-                .retry() // read from queue even on errors
-                .repeat() // read from queue all the time
+        filterService.fetchInitialFilters()
+                .thenMany(sqsService.getItems()
+                        .retry() // read from queue even on errors
+                        .repeat()) // read from queue all the time
                 .flatMap(Flux::fromIterable)
                 .doOnNext(item -> System.out.println("Starting to process item: " + item))
                 .filterWhen(filterService::passFilter)

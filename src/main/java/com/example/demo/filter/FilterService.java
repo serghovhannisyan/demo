@@ -16,6 +16,9 @@ import static java.util.stream.Collectors.toMap;
 
 @Component
 public class FilterService {
+    public static final Sinks.EmitFailureHandler RETRY_ON_CONCURRENT_ACCESS_HANDLER =
+            (signalType, emitResult) -> emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED;
+
     private final Map<ItemType, Sinks.Many<Filter>> filtersSink;
     private final Map<ItemType, Mono<Filter>> latestFilterCache;
 
@@ -26,19 +29,17 @@ public class FilterService {
         // creates a read-only view for the above sinks remembering only the last element
         this.latestFilterCache = filtersSink.entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, entry -> createCachedMono(entry.getValue())));
-
-        fetchInitialFilters();
     }
 
     private Mono<Filter> createCachedMono(Sinks.Many<Filter> sink) {
         return sink.asFlux().cache(1).next();
     }
 
-    private void fetchInitialFilters() {
-        Flux.range(0, 2)
+    public Mono<Void> fetchInitialFilters() {
+        return Flux.range(0, 2)
                 .map(i -> new Filter(i + 10, i % 2 == 0 ? ItemType.TYPE_1 : ItemType.TYPE_2))
-                .doOnNext(filter -> filtersSink.get(filter.getType()).tryEmitNext(filter))
-                .blockLast(); // we want to block here to delay app startup until first filters received
+                .doOnNext(filter -> filtersSink.get(filter.getType()).emitNext(filter, RETRY_ON_CONCURRENT_ACCESS_HANDLER))
+                .then();
     }
 
     // reactive redis will receive message and call this method
@@ -46,8 +47,7 @@ public class FilterService {
         for (Filter filter : filters) {
             System.out.println("new filter: " + filter);
             Sinks.Many<Filter> filterSink = filtersSink.get(filter.getType());
-            filterSink.emitNext(filter,
-                    ((signalType, emitResult) -> emitResult == Sinks.EmitResult.FAIL_NON_SERIALIZED)); // try again in case of concurrent access
+            filterSink.emitNext(filter, RETRY_ON_CONCURRENT_ACCESS_HANDLER);
         }
     }
 
