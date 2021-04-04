@@ -48,6 +48,8 @@ public class FilterService {
             System.out.println("new filter: " + filter);
             Sinks.Many<Filter> filterSink = filtersSink.get(filter.getType());
             filterSink.emitNext(filter, RETRY_ON_CONCURRENT_ACCESS_HANDLER);
+            // comment above and uncomment below to test what happens in case of unhandled concurrent access
+//            filterSink.emitNext(filter, Sinks.EmitFailureHandler.FAIL_FAST);
         }
     }
 
