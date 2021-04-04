@@ -2,6 +2,7 @@ package com.example.demo.filter;
 
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Component
 public class MyRunner {
@@ -18,10 +19,14 @@ public class MyRunner {
 
     // this will be called during startup and run forever
     public void run() {
-        sqsService.getItems()
-                .retry() // read from queue even on errors
-                .repeat() // read from queue all the time
+        // wrapping with defer is not necessary,
+        // it's only used to emphasize that retry is only applied on filters fetching
+        Mono.defer(() -> filterService.fetchInitialFilters().retry())
+                .thenMany(sqsService.getItems()
+                        .retry() // read from queue even on errors
+                        .repeat()) // read from queue all the time
                 .flatMap(Flux::fromIterable)
+                .doOnNext(item -> System.out.println("Starting to process item: " + item))
                 .filterWhen(filterService::passFilter)
                 .flatMap(snsService::saveItems)
                 .collectList()
