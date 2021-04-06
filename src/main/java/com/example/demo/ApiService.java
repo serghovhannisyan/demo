@@ -1,16 +1,18 @@
 package com.example.demo;
 
-import com.example.demo.dto.Auth;
 import com.example.demo.dto.ItemDetails;
 import com.example.demo.dto.Project;
 import com.example.demo.dto.ResponseWrapper;
-import lombok.RequiredArgsConstructor;
+import com.example.demo.exceptions.ProjectsCallException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+
+import java.time.Duration;
 
 @Service
 @Slf4j
@@ -41,7 +43,10 @@ public class ApiService implements Api {
         return webClient.get()
                 .uri("/projects")
                 .retrieve()
-                .bodyToFlux(Project.class);
+                .bodyToFlux(Project.class)
+                .retryWhen(Retry.backoff(1, Duration.ofSeconds(3))
+                        .filter(WebClientResponseException.InternalServerError.class::isInstance))
+                .onErrorMap(ProjectsCallException::new);
     }
 
     public Mono<ItemDetails> getItemDetails(Long projectId,
@@ -49,6 +54,10 @@ public class ApiService implements Api {
         return webClient.get()
                 .uri("/projects/{projectId}/details/{itemId}", projectId, itemId)
                 .retrieve()
-                .bodyToMono(ItemDetails.class);
+                .bodyToMono(ItemDetails.class)
+                .retryWhen(Retry.backoff(1, Duration.ofSeconds(3))
+                        .filter(WebClientResponseException.InternalServerError.class::isInstance))
+                .doOnError(e -> log.error("item details call failed", e))
+                .onErrorResume(e -> Mono.empty()); // ignores error, and drops item
     }
 }
